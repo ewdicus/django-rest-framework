@@ -443,15 +443,8 @@ class BrowsableAPIRenderer(BaseRenderer):
             if (not getattr(view, 'get_serializer', None)
                 or not any(is_form_media_type(parser.media_type) for parser in view.parser_classes)):
                 return
-            
-            bulk = isinstance(obj, list)
-            if bulk:
-                return
-                # Still not sure how to handle this
-                # serializer = view.get_serializer(instance=obj, data=data, files=files, many=True)
-            else:
-                serializer = view.get_serializer(instance=obj, data=data, files=files)
-            
+
+            serializer = view.get_serializer(instance=obj, data=data, files=files)
             serializer.is_valid()
             data = serializer.data
 
@@ -483,14 +476,9 @@ class BrowsableAPIRenderer(BaseRenderer):
             if (hasattr(view, 'get_serializer') and renderer_class):
                 # View has a serializer defined and parser class has a
                 # corresponding renderer that can be used to render the data.
-                
-                bulk = isinstance(obj, list)
-                if bulk:
-                    serializer = view.get_serializer(instance=obj, many=True)
-                else:
-                    # Get a read-only version of the serializer
-                    serializer = view.get_serializer(instance=obj)
 
+                # Get a read-only version of the serializer
+                serializer = view.get_serializer(instance=obj)
                 if obj is None:
                     for name, field in serializer.fields.items():
                         if getattr(field, 'read_only', None):
