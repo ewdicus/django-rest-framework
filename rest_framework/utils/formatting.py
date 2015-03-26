@@ -2,12 +2,9 @@
 Utility functions to return a formatted name and description for a given view.
 """
 from __future__ import unicode_literals
-
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
-from rest_framework.compat import apply_markdown
-from rest_framework.settings import api_settings
-from textwrap import dedent
+from rest_framework.compat import apply_markdown, force_text
 import re
 
 
@@ -30,6 +27,7 @@ def dedent(content):
     as it fails to dedent multiline docstrings that include
     unindented text on the initial line.
     """
+    content = force_text(content)
     whitespace_counts = [len(line) - len(line.lstrip(' '))
                          for line in content.splitlines()[1:] if line.lstrip()]
 
@@ -40,6 +38,7 @@ def dedent(content):
 
     return content.strip()
 
+
 def camelcase_to_spaces(content):
     """
     Translate 'CamelCaseNames' to 'Camel Case Names'.
@@ -49,6 +48,7 @@ def camelcase_to_spaces(content):
     content = re.sub(camelcase_boundry, ' \\1', content).strip()
     return ' '.join(content.split('_')).title()
 
+
 def markup_description(description):
     """
     Apply HTML markup to the given description.
@@ -57,4 +57,5 @@ def markup_description(description):
         description = apply_markdown(description)
     else:
         description = escape(description).replace('\n', '<br />')
+        description = '<p>' + description + '</p>'
     return mark_safe(description)

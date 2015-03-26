@@ -4,8 +4,14 @@
 <a href="https://twitter.com/share" class="twitter-share-button" data-url="django-rest-framework.org" data-text="Checking out the totally awesome Django REST framework! http://www.django-rest-framework.org" data-count="none"></a>
 <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="http://platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
 
-<img src="https://secure.travis-ci.org/tomchristie/django-rest-framework.png?branch=master" class="travis-build-image">
+<img src="https://secure.travis-ci.org/tomchristie/django-rest-framework.svg?branch=master" class="travis-build-image">
 </p>
+
+---
+
+**Note**: This is the documentation for the **version 3.1** of REST framework. Documentation for [version 2.4](http://tomchristie.github.io/rest-framework-2-docs/) is also available.
+
+For more details see the [3.1 release notes][3.1-announcement].
 
 ---
 
@@ -22,16 +28,12 @@
 <img alt="Django REST Framework" title="Logo by Jake 'Sid' Smith" src="img/logo.png" width="600px" style="display: block; margin: 0 auto 0 auto">
 </p>
 
-<!--
-# Django REST framework
--->
-
 Django REST framework is a powerful and flexible toolkit that makes it easy to build Web APIs.
 
 Some reasons you might want to use REST framework:
 
-* The [Web browseable API][sandbox] is a huge usability win for your developers.
-* [Authentication policies][authentication] including [OAuth1a][oauth1-section] and [OAuth2][oauth2-section] out of the box.
+* The [Web browsable API][sandbox] is a huge usability win for your developers.
+* [Authentication policies][authentication] including packages for [OAuth1a][oauth1-section] and [OAuth2][oauth2-section].
 * [Serialization][serializers] that supports both [ORM][modelserializer-section] and [non-ORM][serializer-section] data sources.
 * Customizable all the way down - just use [regular function-based views][functionview-section] if you don't need the [more][generic-views] [powerful][viewsets] [features][routers].
 * [Extensive documentation][index], and [great community support][group].
@@ -43,26 +45,18 @@ Some reasons you might want to use REST framework:
 
 **Above**: *Screenshot from the browsable API*
 
-----
-
 ## Requirements
 
 REST framework requires the following:
 
-* Python (2.6.5+, 2.7, 3.2, 3.3)
-* Django (1.3, 1.4, 1.5, 1.6)
+* Python (2.6.5+, 2.7, 3.2, 3.3, 3.4)
+* Django (1.4.11+, 1.5.6+, 1.6.3+, 1.7, 1.8-beta)
 
 The following packages are optional:
 
 * [Markdown][markdown] (2.1.0+) - Markdown support for the browsable API.
-* [PyYAML][yaml] (3.10+) - YAML content-type support.
-* [defusedxml][defusedxml] (0.3+) - XML content-type support.
-* [django-filter][django-filter] (0.5.4+) - Filtering support.
-* [django-oauth-plus][django-oauth-plus] (2.0+) and [oauth2][oauth2] (1.5.211+) - OAuth 1.0a support.
-* [django-oauth2-provider][django-oauth2-provider] (0.2.3+) - OAuth 2.0 support.
+* [django-filter][django-filter] (0.9.2+) - Filtering support.
 * [django-guardian][django-guardian] (1.1.1+) - Object level permissions support.
-
-**Note**: The `oauth2` Python package is badly misnamed, and actually provides OAuth 1.0a support.  Also note that packages required for both OAuth 1.0a, and OAuth 2.0 are not yet Python 3 compatible.
 
 ## Installation
 
@@ -85,10 +79,10 @@ Add `'rest_framework'` to your `INSTALLED_APPS` setting.
 
 If you're intending to use the browsable API you'll probably also want to add REST framework's login and logout views.  Add the following to your root `urls.py` file.
 
-    urlpatterns = patterns('',
+    urlpatterns = [
         ...
         url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework'))
-    )
+    ]
 
 Note that the URL path can be whatever you want, but you must include `'rest_framework.urls'` with the `'rest_framework'` namespace.
 
@@ -96,16 +90,11 @@ Note that the URL path can be whatever you want, but you must include `'rest_fra
 
 Let's take a look at a quick example of using REST framework to build a simple model-backed API.
 
-We'll create a read-write API for accessing users and groups.
+We'll create a read-write API for accessing information on the users of our project.
 
 Any global settings for a REST framework API are kept in a single configuration dictionary named `REST_FRAMEWORK`.  Start off by adding the following to your `settings.py` module:
 
     REST_FRAMEWORK = {
-        # Use hyperlinked styles by default.
-        # Only used if the `serializer_class` attribute is not set on a view.
-        'DEFAULT_MODEL_SERIALIZER_CLASS':
-            'rest_framework.serializers.HyperlinkedModelSerializer',
-
         # Use Django's standard `django.contrib.auth` permissions,
         # or allow read-only access for unauthenticated users.
         'DEFAULT_PERMISSION_CLASSES': [
@@ -118,34 +107,37 @@ Don't forget to make sure you've also added `rest_framework` to your `INSTALLED_
 We're ready to create our API now.
 Here's our project's root `urls.py` module:
 
-    from django.conf.urls import url, patterns, include
-    from django.contrib.auth.models import User, Group
-    from rest_framework import viewsets, routers
+    from django.conf.urls import url, include
+    from django.contrib.auth.models import User
+    from rest_framework import routers, serializers, viewsets
+
+	# Serializers define the API representation.
+	class UserSerializer(serializers.HyperlinkedModelSerializer):
+	    class Meta:
+	        model = User
+	        fields = ('url', 'username', 'email', 'is_staff')
 
     # ViewSets define the view behavior.
     class UserViewSet(viewsets.ModelViewSet):
-        model = User
-
-    class GroupViewSet(viewsets.ModelViewSet):
-        model = Group
-
+        queryset = User.objects.all()
+        serializer_class = UserSerializer
 
     # Routers provide an easy way of automatically determining the URL conf.
     router = routers.DefaultRouter()
     router.register(r'users', UserViewSet)
-    router.register(r'groups', GroupViewSet)
-
 
     # Wire up our API using automatic URL routing.
-    # Additionally, we include login URLs for the browseable API.
-    urlpatterns = patterns('',
+    # Additionally, we include login URLs for the browsable API.
+    urlpatterns = [
         url(r'^', include(router.urls)),
         url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework'))
-    )
+    ]
+
+You can now open the API in your browser at [http://127.0.0.1:8000/](http://127.0.0.1:8000/), and view your new 'users' API. If you use the login control in the top right corner you'll also be able to add, create and delete users from the system.
 
 ## Quickstart
 
-Can't wait to get started?  The [quickstart guide][quickstart] is the fastest way to get up and running, and building APIs with REST framework.
+Can't wait to get started? The [quickstart guide][quickstart] is the fastest way to get up and running, and building APIs with REST framework.
 
 ## Tutorial
 
@@ -175,12 +167,15 @@ The API guide is your complete reference manual to all the functionality provide
 * [Serializers][serializers]
 * [Serializer fields][fields]
 * [Serializer relations][relations]
+* [Validators][validators]
 * [Authentication][authentication]
 * [Permissions][permissions]
 * [Throttling][throttling]
 * [Filtering][filtering]
 * [Pagination][pagination]
+* [Versioning][versioning]
 * [Content negotiation][contentnegotiation]
+* [Metadata][metadata]
 * [Format suffixes][formatsuffixes]
 * [Returning URLs][reverse]
 * [Exceptions][exceptions]
@@ -197,28 +192,19 @@ General guides to using REST framework.
 * [Browser enhancements][browser-enhancements]
 * [The Browsable API][browsableapi]
 * [REST, Hypermedia & HATEOAS][rest-hypermedia-hateoas]
+* [Third Party Resources][third-party-resources]
 * [Contributing to REST framework][contributing]
-* [2.0 Announcement][rest-framework-2-announcement]
-* [2.2 Announcement][2.2-announcement]
-* [2.3 Announcement][2.3-announcement]
+* [Project management][project-management]
+* [3.0 Announcement][3.0-announcement]
+* [3.1 Announcement][3.1-announcement]
+* [Kickstarter Announcement][kickstarter-announcement]
 * [Release Notes][release-notes]
-* [Credits][credits]
 
 ## Development
 
-If you want to work on REST framework itself, clone the repository, then...
-
-Build the docs:
-
-    ./mkdocs.py
-
-Run the tests:
-
-    ./rest_framework/runtests/runtests.py
-
-To run the tests against all supported configurations, first install [the tox testing tool][tox] globally, using `pip install tox`, then simply run `tox`:
-
-    tox
+See the [Contribution guidelines][contributing] for information on how to clone
+the repository, run the test suite and contribute changes back to REST
+Framework.
 
 ## Support
 
@@ -239,7 +225,7 @@ Send a description of the issue via email to [rest-framework-security@googlegrou
 
 ## License
 
-Copyright (c) 2011-2014, Tom Christie
+Copyright (c) 2011-2015, Tom Christie
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -267,18 +253,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 [mozilla]: http://www.mozilla.org/en-US/about/
 [eventbrite]: https://www.eventbrite.co.uk/about/
 [markdown]: http://pypi.python.org/pypi/Markdown/
-[yaml]: http://pypi.python.org/pypi/PyYAML
-[defusedxml]: https://pypi.python.org/pypi/defusedxml
 [django-filter]: http://pypi.python.org/pypi/django-filter
-[oauth2]: https://github.com/simplegeo/python-oauth2
-[django-oauth-plus]: https://bitbucket.org/david/django-oauth-plus/wiki/Home
-[django-oauth2-provider]: https://github.com/caffeinehit/django-oauth2-provider
 [django-guardian]: https://github.com/lukaszb/django-guardian
 [0.4]: https://github.com/tomchristie/django-rest-framework/tree/0.4.X
 [image]: img/quickstart.png
 [index]: .
-[oauth1-section]: api-guide/authentication#oauthauthentication
-[oauth2-section]: api-guide/authentication#oauth2authentication
+[oauth1-section]: api-guide/authentication/#django-rest-framework-oauth
+[oauth2-section]: api-guide/authentication/#django-oauth-toolkit
 [serializer-section]: api-guide/serializers#serializers
 [modelserializer-section]: api-guide/serializers#modelserializer
 [functionview-section]: api-guide/views#function-based-views
@@ -303,12 +284,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 [serializers]: api-guide/serializers.md
 [fields]: api-guide/fields.md
 [relations]: api-guide/relations.md
+[validators]: api-guide/validators.md
 [authentication]: api-guide/authentication.md
 [permissions]: api-guide/permissions.md
 [throttling]: api-guide/throttling.md
 [filtering]: api-guide/filtering.md
 [pagination]: api-guide/pagination.md
+[versioning]: api-guide/versioning.md
 [contentnegotiation]: api-guide/content-negotiation.md
+[metadata]: api-guide/metadata.md
 [formatsuffixes]: api-guide/format-suffixes.md
 [reverse]: api-guide/reverse.md
 [exceptions]: api-guide/exceptions.md
@@ -317,16 +301,18 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 [settings]: api-guide/settings.md
 
 [documenting-your-api]: topics/documenting-your-api.md
+[internationalization]: topics/documenting-your-api.md
 [ajax-csrf-cors]: topics/ajax-csrf-cors.md
 [browser-enhancements]: topics/browser-enhancements.md
 [browsableapi]: topics/browsable-api.md
 [rest-hypermedia-hateoas]: topics/rest-hypermedia-hateoas.md
 [contributing]: topics/contributing.md
-[rest-framework-2-announcement]: topics/rest-framework-2-announcement.md
-[2.2-announcement]: topics/2.2-announcement.md
-[2.3-announcement]: topics/2.3-announcement.md
+[project-management]: topics/project-management.md
+[third-party-resources]: topics/third-party-resources.md
+[3.0-announcement]: topics/3.0-announcement.md
+[3.1-announcement]: topics/3.1-announcement.md
+[kickstarter-announcement]: topics/kickstarter-announcement.md
 [release-notes]: topics/release-notes.md
-[credits]: topics/credits.md
 
 [tox]: http://testrun.org/tox/latest/
 
